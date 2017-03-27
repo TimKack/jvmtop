@@ -80,6 +80,7 @@ public class JvmTop {
                 .withRequiredArg()
                 .ofType(Double.class);
         parser.accepts("profile", "start CPU profiling at the specified jvm");
+	parser.accepts("threads", "together with profile option, keeps thread level information");
         parser.accepts("enable-deltas", "shows deltas between the updates (currently only applicable with --profile-mem)");
 
         parser.accepts("profile-mem", "start memory profiling at the specified jvm")
@@ -125,12 +126,13 @@ public class JvmTop {
             parser.printHelpOn(System.out);
             System.exit(0);
         }
-
+    
         boolean sysInfoOption = a.has("sysinfo");
         Integer pid = null;
         Integer width = null;
         double delay = 1.0;
         boolean profileMode = a.has("profile");
+	boolean threadSplit = a.has("threads");
         boolean profileMemMode = a.has("profile-mem");
         boolean deltasEnabled = a.has("enable-deltas");
         Integer iterations = a.has("once") ? 1 : -1;
@@ -188,31 +190,26 @@ public class JvmTop {
         if (sysInfoOption) {
             outputSystemProps();
         } else {
-            JvmTop jvmTop = new JvmTop();
-            jvmTop.setDelay(delay);
-            jvmTop.setMaxIterations(iterations);
-            if (pid == null) {
-                jvmTop.run(new VMOverviewView(width));
-            } else {
-                if (profileMode) {
-                    jvmTop.run(new VMProfileView(pid, width));
-                }
-                if (profileMemMode) {
-                    jvmTop.run(new VMMemProfileView(pid, width, deltasEnabled));
-                } else {
-                    VMDetailView vmDetailView = new VMDetailView(pid, width);
-                    vmDetailView.setDisplayedThreadLimit(threadLimitEnabled);
-                    if (threadlimit != null) {
-                        vmDetailView.setNumberOfDisplayedThreads(threadlimit);
-                    }
-                    if (threadNameWidth != null) {
-                        vmDetailView.setThreadNameDisplayWidth(threadNameWidth);
-                    }
-                    jvmTop.run(vmDetailView);
-
-                }
-
-            }
+	          JvmTop jvmTop = new JvmTop();
+		  jvmTop.setDelay(delay);
+		  jvmTop.setMaxIterations(iterations);
+		  if (pid == null) {
+		      jvmTop.run(new VMOverviewView(width));
+		  } else {
+		      if (profileMode) {
+			  jvmTop.run(new VMProfileView(pid, width, threadSplit));
+		      } else {
+			  VMDetailView vmDetailView = new VMDetailView(pid, width);
+			  vmDetailView.setDisplayedThreadLimit(threadLimitEnabled);
+			  if (threadlimit != null) {
+			      vmDetailView.setNumberOfDisplayedThreads(threadlimit);
+			  }
+			  if (threadNameWidth != null) {
+			      vmDetailView.setThreadNameDisplayWidth(threadNameWidth);
+			  }
+			  jvmTop.run(vmDetailView);
+		      }
+		  }
         }
     }
 
@@ -224,8 +221,7 @@ public class JvmTop {
             System.exit(100);
         }
 
-
-        try {
+	try {
             HeapSampler sampler = new HeapSampler(pid);
 
             if (options.has("thread-dump")) {
@@ -262,7 +258,7 @@ public class JvmTop {
     public void setMaxIterations(int iterations) {
         maxIterations_ = iterations;
     }
-
+    
     private static void fineLogging() {
         //get the top Logger:
         Logger topLogger = java.util.logging.Logger.getLogger("");
